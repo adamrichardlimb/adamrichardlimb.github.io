@@ -1,6 +1,11 @@
 name: convert-html
 run-name: Convert our markdown articles to HTML.
-on: [push]
+  on: 
+    push:
+      branches: [main]
+    workflow_dispatch: {}
+permissions:
+  contents: write
 jobs:
     convert-html:
       if: github.actor != 'github-actions[bot]'
