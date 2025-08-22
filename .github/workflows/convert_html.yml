@@ -1,9 +1,9 @@
 name: convert-html
 run-name: Convert our markdown articles to HTML.
-  on: 
-    push:
-      branches: [main]
-    workflow_dispatch: {}
+on: 
+  push:
+    branches: [main]
+  workflow_dispatch: {}
 permissions:
   contents: write
 jobs:
