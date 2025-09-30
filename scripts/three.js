@@ -24,6 +24,10 @@ yawRig.add(pitchRig);
 pitchRig.add(alignRig);
 scene.add(yawRig);
 
+// prevent roll: ensure Euler orders + zero Z each frame (done in animate)
+yawRig.rotation.order = 'YXZ';
+pitchRig.rotation.order = 'YXZ';
+
 // mouse/touch state
 let mouseX = 0, mouseY = 0;
 let startX = 0, startY = 0;
@@ -40,6 +44,8 @@ loader.load(
   './assets/head.glb',
   (gltf) => {
     const model = gltf.scene;
+
+    // centre about true bounds
     const box = new THREE.Box3().setFromObject(model);
     const size = new THREE.Vector3(), center = new THREE.Vector3();
     box.getSize(size);
@@ -55,7 +61,7 @@ loader.load(
     const visibleH = 2 * camDist * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
     const targetH = visibleH * 0.6;
     const scale = size.y > 0 ? targetH / size.y : 1.0;
-    //model.scale.setScalar(scale);
+    // model.scale.setScalar(scale);
 
     alignRig.add(model);
   },
@@ -69,7 +75,7 @@ function getNormXY(clientX, clientY) {
   const rect = el.getBoundingClientRect();
   const nx = (clientX - rect.left) / rect.width;
   const ny = (clientY - rect.top) / rect.height;
-  return { nx: nx * 2 - 1, ny: ny * 2 - 1 };
+  return { nx: nx * 2 - 1, ny: ny * 2 - 1 }; // [-1,1] each
 }
 
 // Desktop hover movement
@@ -106,17 +112,98 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
+// === AUDIO (robust unlock + fade) ===
+let audioCtx, audio, gainNode;
+let audioSetup = false;
+
+async function ensureAudioUnlocked() {
+  if (!audioSetup) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audio = new Audio('./assets/concrete.m4a');
+    audio.loop = true;
+
+    const track = audioCtx.createMediaElementSource(audio);
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = 0;
+    track.connect(gainNode).connect(audioCtx.destination);
+    audioSetup = true;
+  }
+
+  if (audioCtx.state !== 'running') {
+    try { await audioCtx.resume(); } catch {}
+  }
+}
+
+function fadeIn(duration = 0.1) {
+  if (!audioSetup) return;
+  const now = audioCtx.currentTime;
+  gainNode.gain.cancelScheduledValues(now);
+  gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+  gainNode.gain.linearRampToValueAtTime(1, now + duration);
+}
+
+function fadeOut(duration = 0.1) {
+  if (!audioSetup) return;
+  const now = audioCtx.currentTime;
+  gainNode.gain.cancelScheduledValues(now);
+  gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+  gainNode.gain.linearRampToValueAtTime(0, now + duration);
+  setTimeout(() => { if (audio && !audio.paused) audio.pause(); }, duration * 1000 + 50);
+}
+
+// events (play only after first gesture)
+addEventListener('headMoveStart', async () => {
+  await ensureAudioUnlocked();
+  if (audio.paused) { try { await audio.play(); } catch {} }
+  fadeIn();
+});
+addEventListener('headMoveStop', () => fadeOut());
+
+// === HEAD MOTION STATE ===
+let wasMoving = false;
+let lastYaw = 0;
+let lastPitch = 0;
+
+function checkHeadMotion() {
+  const yaw = yawRig.rotation.y;
+  const pitch = pitchRig.rotation.x;
+
+  const deltaYaw = Math.abs(yaw - lastYaw);
+  const deltaPitch = Math.abs(pitch - lastPitch);
+  lastYaw = yaw;
+  lastPitch = pitch;
+
+  const moving = deltaYaw > 0.0005 || deltaPitch > 0.0005;
+
+  if (moving && !wasMoving) {
+    dispatchEvent(new Event('headMoveStart'));
+  } else if (!moving && wasMoving) {
+    dispatchEvent(new Event('headMoveStop'));
+  }
+  wasMoving = moving;
+}
+
 // animate
 function animate() {
   const desiredYaw = mouseX * maxYaw;
-  const desiredPitch = mouseY * maxPitch;
+  const desiredPitch = mouseY * maxPitch; // invert for natural feel (move up = look up)
 
+  // smooth
   yawRig.rotation.y = THREE.MathUtils.lerp(yawRig.rotation.y, desiredYaw, lerpAlpha);
   pitchRig.rotation.x = THREE.MathUtils.lerp(pitchRig.rotation.x, desiredPitch, lerpAlpha);
 
+  // clamp pitch and hard-zero roll
   pitchRig.rotation.x = THREE.MathUtils.clamp(pitchRig.rotation.x, -maxPitch, maxPitch);
+  yawRig.rotation.z = 0;
+  pitchRig.rotation.z = 0;
 
+  checkHeadMotion();
   renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(animate);
+
+// one-time gesture listeners to help unlock early (no autoplay attempts here)
+['pointerdown','keydown','touchstart'].forEach(type => {
+  window.addEventListener(type, ensureAudioUnlocked, { once: true, passive: true });
+});
 
