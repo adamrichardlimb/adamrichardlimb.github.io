@@ -1,20 +1,21 @@
-<link rel="stylesheet" href="./monospace.css" />
-<ul class="tree">
-  <li>
-    <p style="margin: 0;">
-      <strong>my stuff</strong>
-    </p>
-    <ul class="incremental">
-      <li>
-        articles
-        <ul class="incremental">
-          <li>
-            <a href="./articles/delayed_signals.html">Delayed Signals</a><br />
-          </li>
-      </li>
-    </ul>
-    <li>projects
-      <ul class="incremental">
-      </ul>
-    </li>
-</ul>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>My first three.js app</title>
+    <style>
+      body { margin: 0; }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+      }
+    }
+    </script>
+  </head>
+  <body>
+    <script type="module" src="/scripts/three.js"></script>
+  </body>
+</html>
