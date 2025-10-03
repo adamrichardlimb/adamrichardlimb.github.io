@@ -1,30 +1,39 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import mobileCheck from './mobileCheck.js';
+import labelObject from './items.js';
+
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 1);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// Zoom camera out for mobile users
+let onMobile = mobileCheck();
+camera.position.set(0, 0, onMobile ? 2 : 1);
+
+const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
-renderer.domElement.style.touchAction = 'none'; // block browser gestures on mobile
+renderer.domElement.style.touchAction = 'none';
 
 // lights
-scene.add(new THREE.AmbientLight(0x505050));
-const key = new THREE.DirectionalLight(0xffffff, 1);
-key.position.set(1, 1, 1);
-scene.add(key);
+scene.add(new THREE.AmbientLight(0xC0C0C0));
 
 // Rig: yaw(Y) → pitch(X) → align(fixed correction)
 const yawRig = new THREE.Group();
 const pitchRig = new THREE.Group();
 const alignRig = new THREE.Group();
+
+
+// Put model inside a container, pivot at (0,0,0)
+const modelPivot = new THREE.Group();
+
 yawRig.add(pitchRig);
 pitchRig.add(alignRig);
 scene.add(yawRig);
 
-// prevent roll: ensure Euler orders + zero Z each frame (done in animate)
 yawRig.rotation.order = 'YXZ';
 pitchRig.rotation.order = 'YXZ';
 
@@ -38,32 +47,24 @@ const maxYaw = THREE.MathUtils.degToRad(45);
 const maxPitch = THREE.MathUtils.degToRad(45);
 const lerpAlpha = 0.15;
 
-// load model, centre, orient, scale
+// load model, centre, orient
 const loader = new GLTFLoader();
 loader.load(
   './assets/head.glb',
   (gltf) => {
     const model = gltf.scene;
 
-    // centre about true bounds
+    // Compute bounding box centre
     const box = new THREE.Box3().setFromObject(model);
-    const size = new THREE.Vector3(), center = new THREE.Vector3();
-    box.getSize(size);
+    const center = new THREE.Vector3();
     box.getCenter(center);
+
+    // Shift model so its centre is at (0,0,0)
     model.position.sub(center);
-    model.rotation.set(0, 0, 0);
+    modelPivot.add(model);
 
-    // fixed correction: +X → -Z
-    alignRig.rotation.y = -Math.PI / 2;
-
-    // optional fit to view
-    const camDist = camera.position.z;
-    const visibleH = 2 * camDist * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
-    const targetH = visibleH * 0.6;
-    const scale = size.y > 0 ? targetH / size.y : 1.0;
-    // model.scale.setScalar(scale);
-
-    alignRig.add(model);
+    alignRig.rotation.y = -Math.PI / 2; // correction
+    alignRig.add(modelPivot);
   },
   undefined,
   (err) => console.error('Error loading model:', err)
@@ -75,26 +76,25 @@ function getNormXY(clientX, clientY) {
   const rect = el.getBoundingClientRect();
   const nx = (clientX - rect.left) / rect.width;
   const ny = (clientY - rect.top) / rect.height;
-  return { nx: nx * 2 - 1, ny: ny * 2 - 1 }; // [-1,1] each
+  return { nx: nx * 2 - 1, ny: ny * 2 - 1 };
 }
 
-// Desktop hover movement
-addEventListener('mousemove', e => {
-  if (dragging) return; // drag has priority
+// mouse/drag controls
+addEventListener('mousemove', (e) => {
+  if (dragging) return;
   const { nx, ny } = getNormXY(e.clientX, e.clientY);
   mouseX = THREE.MathUtils.clamp(nx, -1, 1);
   mouseY = THREE.MathUtils.clamp(ny, -1, 1);
 });
-
-// Pointer drag (mobile + desktop click-drag)
-el.addEventListener('pointerdown', e => {
+el.addEventListener('pointerdown', (e) => {
   dragging = true;
   const { nx, ny } = getNormXY(e.clientX, e.clientY);
-  startX = nx; startY = ny;
+  startX = nx;
+  startY = ny;
   startYaw = mouseX;
   startPitch = mouseY;
 });
-el.addEventListener('pointermove', e => {
+el.addEventListener('pointermove', (e) => {
   if (!dragging) return;
   const { nx, ny } = getNormXY(e.clientX, e.clientY);
   const dx = nx - startX;
@@ -102,108 +102,74 @@ el.addEventListener('pointermove', e => {
   mouseX = THREE.MathUtils.clamp(startYaw + dx, -1, 1);
   mouseY = THREE.MathUtils.clamp(startPitch + dy, -1, 1);
 });
-el.addEventListener('pointerup',   () => { dragging = false; });
-el.addEventListener('pointercancel',() => { dragging = false; });
+el.addEventListener('pointerup', () => {
+  dragging = false;
+});
+el.addEventListener('pointercancel', () => {
+  dragging = false;
+});
 
 // resize
 addEventListener('resize', () => {
+  onMobile = mobileCheck();
+  camera.position.set(0, 0, onMobile ? 2 : 1);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
 
-// === AUDIO (robust unlock + fade) ===
-let audioCtx, audio, gainNode;
-let audioSetup = false;
+// Create the CSS2D renderer
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(window.innerWidth, window.innerHeight);
+labelRenderer.domElement.style.position = 'absolute';
+labelRenderer.domElement.style.top = '0';
+document.body.appendChild(labelRenderer.domElement);
 
-async function ensureAudioUnlocked() {
-  if (!audioSetup) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    audio = new Audio('./assets/concrete.m4a');
-    audio.loop = true;
-
-    const track = audioCtx.createMediaElementSource(audio);
-    gainNode = audioCtx.createGain();
-    gainNode.gain.value = 0;
-    track.connect(gainNode).connect(audioCtx.destination);
-    audioSetup = true;
-  }
-
-  if (audioCtx.state !== 'running') {
-    try { await audioCtx.resume(); } catch {}
-  }
-}
-
-function fadeIn(duration = 0.1) {
-  if (!audioSetup) return;
-  const now = audioCtx.currentTime;
-  gainNode.gain.cancelScheduledValues(now);
-  gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-  gainNode.gain.linearRampToValueAtTime(1, now + duration);
-}
-
-function fadeOut(duration = 0.1) {
-  if (!audioSetup) return;
-  const now = audioCtx.currentTime;
-  gainNode.gain.cancelScheduledValues(now);
-  gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-  gainNode.gain.linearRampToValueAtTime(0, now + duration);
-  setTimeout(() => { if (audio && !audio.paused) audio.pause(); }, duration * 1000 + 50);
-}
-
-// events (play only after first gesture)
-addEventListener('headMoveStart', async () => {
-  await ensureAudioUnlocked();
-  if (audio.paused) { try { await audio.play(); } catch {} }
-  fadeIn();
-});
-addEventListener('headMoveStop', () => fadeOut());
-
-// === HEAD MOTION STATE ===
-let wasMoving = false;
-let lastYaw = 0;
-let lastPitch = 0;
-
-function checkHeadMotion() {
-  const yaw = yawRig.rotation.y;
-  const pitch = pitchRig.rotation.x;
-
-  const deltaYaw = Math.abs(yaw - lastYaw);
-  const deltaPitch = Math.abs(pitch - lastPitch);
-  lastYaw = yaw;
-  lastPitch = pitch;
-
-  const moving = deltaYaw > 0.0005 || deltaPitch > 0.0005;
-
-  if (moving && !wasMoving) {
-    dispatchEvent(new Event('headMoveStart'));
-  } else if (!moving && wasMoving) {
-    dispatchEvent(new Event('headMoveStop'));
-  }
-  wasMoving = moving;
-}
+// add labelObject to the scene, positioned relative to head
+scene.add(labelObject);
 
 // animate
-function animate() {
-  const desiredYaw = mouseX * maxYaw;
-  const desiredPitch = mouseY * maxPitch; // invert for natural feel (move up = look up)
+let lastT = performance.now();
+function animate(now = performance.now()) {
+  const dt = (now - lastT) / 1000;
+  lastT = now;
 
-  // smooth
+  const desiredYaw = mouseX * maxYaw;
+  const desiredPitch = mouseY * maxPitch;
   yawRig.rotation.y = THREE.MathUtils.lerp(yawRig.rotation.y, desiredYaw, lerpAlpha);
   pitchRig.rotation.x = THREE.MathUtils.lerp(pitchRig.rotation.x, desiredPitch, lerpAlpha);
-
-  // clamp pitch and hard-zero roll
   pitchRig.rotation.x = THREE.MathUtils.clamp(pitchRig.rotation.x, -maxPitch, maxPitch);
   yawRig.rotation.z = 0;
   pitchRig.rotation.z = 0;
 
-  checkHeadMotion();
+  const offset = new THREE.Vector3(0, 0.5, 0); // offset in world space
+  const newPos = new THREE.Vector3();
+
+  modelPivot.position.set(0.5, 0, 0);
+
+  modelPivot.getWorldPosition(newPos);
+  labelObject.position.copy(newPos).add(offset);
+
   renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+
 }
 renderer.setAnimationLoop(animate);
 
-// one-time gesture listeners to help unlock early (no autoplay attempts here)
-['pointerdown','keydown','touchstart'].forEach(type => {
-  window.addEventListener(type, ensureAudioUnlocked, { once: true, passive: true });
-});
-
+const style = document.createElement('style')
+style.textContent = `
+.label {
+  font-family: Helvetica, sans-serif;
+  font-size: 16px;
+  color: white;
+}
+.label a {
+  color: white;
+  margin: 0 0.5rem;
+  text-decoration: none;
+}
+.label a:hover {
+  text-decoration: underline;
+}
+`
+document.head.appendChild(style)
