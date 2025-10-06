@@ -2,14 +2,12 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import mobileCheck from './mobileCheck.js';
 import labelObject from './items.js';
+import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';
 
-import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-
-
+let myHead = new THREE.Object3D();
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
 
-// Zoom camera out for mobile users
 let onMobile = mobileCheck();
 camera.position.set(0, 0, onMobile ? 2 : 1);
 
@@ -18,59 +16,53 @@ renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 renderer.domElement.style.touchAction = 'none';
 
-// lights
+// Lights
 scene.add(new THREE.AmbientLight(0xC0C0C0));
 
-// Rig: yaw(Y) → pitch(X) → align(fixed correction)
-const yawRig = new THREE.Group();
-const pitchRig = new THREE.Group();
-const alignRig = new THREE.Group();
-
-
-// Put model inside a container, pivot at (0,0,0)
-const modelPivot = new THREE.Group();
-
-yawRig.add(pitchRig);
-pitchRig.add(alignRig);
-scene.add(yawRig);
-
-yawRig.rotation.order = 'YXZ';
-pitchRig.rotation.order = 'YXZ';
-
-// mouse/touch state
+// Mouse/touch state
 let mouseX = 0, mouseY = 0;
 let startX = 0, startY = 0;
 let startYaw = 0, startPitch = 0;
 let dragging = false;
 
-const maxYaw = THREE.MathUtils.degToRad(45);
-const maxPitch = THREE.MathUtils.degToRad(45);
+const maxYaw = THREE.MathUtils.degToRad(20);
+const maxPitch = THREE.MathUtils.degToRad(20);
 const lerpAlpha = 0.15;
 
-// load model, centre, orient
+// CSS3D renderer
+const cssRenderer = new CSS3DRenderer();
+cssRenderer.setSize(window.innerWidth, window.innerHeight);
+cssRenderer.domElement.style.position = 'absolute';
+cssRenderer.domElement.style.top = '0';
+cssRenderer.domElement.style.pointerEvents = 'none';
+document.body.appendChild(cssRenderer.domElement);
+
+scene.add(labelObject); // add to scene, not as a child of the head
+
+// Load model
 const loader = new GLTFLoader();
+let headBox = new THREE.Box3();
+let headSize = new THREE.Vector3();
+let labelRadius = 0;
+
 loader.load(
   './assets/head.glb',
   (gltf) => {
-    const model = gltf.scene;
+    myHead = gltf.scene;
+    scene.add(myHead);
 
-    // Compute bounding box centre
-    const box = new THREE.Box3().setFromObject(model);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
+    headBox.setFromObject(myHead);
+    headBox.getSize(headSize);
 
-    // Shift model so its centre is at (0,0,0)
-    model.position.sub(center);
-    modelPivot.add(model);
-
-    alignRig.rotation.y = -Math.PI / 2; // correction
-    alignRig.add(modelPivot);
+    // half of the largest dimension
+    labelRadius = Math.max(headSize.x, headSize.z) * 0.04;
+    labelObject.scale.set(labelRadius, labelRadius, labelRadius);
   },
   undefined,
   (err) => console.error('Error loading model:', err)
 );
 
-// pointer helpers
+// Pointer helpers
 const el = renderer.domElement;
 function getNormXY(clientX, clientY) {
   const rect = el.getBoundingClientRect();
@@ -79,7 +71,7 @@ function getNormXY(clientX, clientY) {
   return { nx: nx * 2 - 1, ny: ny * 2 - 1 };
 }
 
-// mouse/drag controls
+// Mouse/drag controls
 addEventListener('mousemove', (e) => {
   if (dragging) return;
   const { nx, ny } = getNormXY(e.clientX, e.clientY);
@@ -102,63 +94,46 @@ el.addEventListener('pointermove', (e) => {
   mouseX = THREE.MathUtils.clamp(startYaw + dx, -1, 1);
   mouseY = THREE.MathUtils.clamp(startPitch + dy, -1, 1);
 });
-el.addEventListener('pointerup', () => {
-  dragging = false;
-});
-el.addEventListener('pointercancel', () => {
-  dragging = false;
-});
+el.addEventListener('pointerup', () => (dragging = false));
+el.addEventListener('pointercancel', () => (dragging = false));
 
-// resize
+// Resize
 addEventListener('resize', () => {
   onMobile = mobileCheck();
   camera.position.set(0, 0, onMobile ? 2 : 1);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  cssRenderer.setSize(innerWidth, innerHeight);
   renderer.setSize(innerWidth, innerHeight);
 });
 
-// Create the CSS2D renderer
-const labelRenderer = new CSS2DRenderer();
-labelRenderer.setSize(window.innerWidth, window.innerHeight);
-labelRenderer.domElement.style.position = 'absolute';
-labelRenderer.domElement.style.top = '0';
-document.body.appendChild(labelRenderer.domElement);
-
-// add labelObject to the scene, positioned relative to head
-scene.add(labelObject);
-
-// animate
+// Animate
 let lastT = performance.now();
+const headPos = new THREE.Vector3();
 function animate(now = performance.now()) {
   const dt = (now - lastT) / 1000;
   lastT = now;
 
   const desiredYaw = mouseX * maxYaw;
   const desiredPitch = mouseY * maxPitch;
-  yawRig.rotation.y = THREE.MathUtils.lerp(yawRig.rotation.y, desiredYaw, lerpAlpha);
-  pitchRig.rotation.x = THREE.MathUtils.lerp(pitchRig.rotation.x, desiredPitch, lerpAlpha);
-  pitchRig.rotation.x = THREE.MathUtils.clamp(pitchRig.rotation.x, -maxPitch, maxPitch);
-  yawRig.rotation.z = 0;
-  pitchRig.rotation.z = 0;
 
-  const offset = new THREE.Vector3(0, 0.5, 0); // offset in world space
-  const newPos = new THREE.Vector3();
+  myHead.rotation.y = THREE.MathUtils.lerp(myHead.rotation.y, desiredYaw, lerpAlpha);
+  myHead.rotation.x = THREE.MathUtils.lerp(myHead.rotation.x, desiredPitch, lerpAlpha);
+  myHead.rotation.x = THREE.MathUtils.clamp(myHead.rotation.x, -maxPitch, maxPitch);
 
-  modelPivot.position.set(0.5, 0, 0);
-
-  modelPivot.getWorldPosition(newPos);
-  labelObject.position.copy(newPos).add(offset);
+  // Follow head position, ignore rotation
+  myHead.getWorldPosition(headPos);
+  labelObject.position.copy(headPos).add(new THREE.Vector3(0, headSize.y * 0.125, 0));
 
   renderer.render(scene, camera);
-  labelRenderer.render(scene, camera);
-
+  cssRenderer.render(scene, camera);
 }
 renderer.setAnimationLoop(animate);
 
-const style = document.createElement('style')
+// Style
+const style = document.createElement('style');
 style.textContent = `
-.label {
+#circlePath {
   font-family: Helvetica, sans-serif;
   font-size: 16px;
   color: white;
@@ -171,5 +146,6 @@ style.textContent = `
 .label a:hover {
   text-decoration: underline;
 }
-`
-document.head.appendChild(style)
+`;
+document.head.appendChild(style);
+
