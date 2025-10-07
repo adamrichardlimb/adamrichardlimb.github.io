@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import mobileCheck from './mobileCheck.js';
-import labelObject from './items.js';
+import items from './items.js';
 import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';
 
 let myHead = new THREE.Object3D();
@@ -37,7 +37,9 @@ cssRenderer.domElement.style.top = '0';
 cssRenderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(cssRenderer.domElement);
 
-scene.add(labelObject); // add to scene, not as a child of the head
+for (const item of items) {
+  scene.add(item); // add to scene, not as a child of the head
+}
 
 // Load model
 const loader = new GLTFLoader();
@@ -55,9 +57,11 @@ loader.load(
     headBox.getSize(headSize);
 
     // half of the largest dimension
-    labelRadius = Math.max(headSize.x, headSize.z) * 0.04;
-    labelObject.scale.set(labelRadius, labelRadius, labelRadius);
-  },
+    for (const item of items) {
+      labelRadius = Math.max(headSize.x, headSize.z) * 0.04;
+      item.scale.set(labelRadius, labelRadius, labelRadius);
+    }
+      },
   undefined,
   (err) => console.error('Error loading model:', err)
 );
@@ -123,7 +127,9 @@ function animate(now = performance.now()) {
 
   // Follow head position, ignore rotation
   myHead.getWorldPosition(headPos);
-  labelObject.position.copy(headPos).add(new THREE.Vector3(0, headSize.y * 0.125, 0));
+  for (const item of items) {
+    item.position.copy(headPos).add(new THREE.Vector3(0, headSize.y * 0.125, 0));
+  }
 
   renderer.render(scene, camera);
   cssRenderer.render(scene, camera);
