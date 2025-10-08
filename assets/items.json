@@ -2,13 +2,29 @@
   {
     "text": "PROJECTS",
     "items": [
-
+      {
+        "title": "Pomodoroiser",
+        "link": "",
+        "description": "The Pomodoroiser is a small app to turn any YouTube playlist into a 'Pomodoro' a productivity tool that alternates between work and break time. The Pomodoroiser can take custom lengths for both the work and break time."
+      },
+      {
+        "title": "Interactive Chloropleth Mapping",
+        "link": "",
+        "description": "I was pitched the opportunity to do some mapping for a political organisation, so I took the median house price data for the past 20 years across 30,000 areas in the UK and created a map that allows you to select an LSOA, zoom in, and see the area. This was a mock-up, so performance and not flourish was the aim. Ultimately, it shows over 1 million datapoints and represents it clearly with <50MB."
+      },
+      {
+        "title": "Garry's Mod Scripting",
+        "link": "",
+        "description": "My first entry into programming was writing scripts for a game called Garry's Mod, particularly Trouble in Terrorist Town. Over time, the game became less popular due to similar games coming onto the market and a shift in the playerbase from a social deduction game to a glorified deathmatch. To remedy this, I wrote seven addons to bring the game more in line with its roots. I still work on these every so often and will probably launch my own server in the future."
+      },
+      {
+        "title": "Days of NHS",
+        "link": "days-of-nhs.vercel.app",
+        "description": "A friend and I would get frustrated when others claimed certain political policies were expensive. So we began to describe the cost of policies in terms of their value as Days of NHS Spending. This gave birth to the @DaysOfNHS twitter account, with over 32,000 followers. I made a website for us to easily calculate these values. It can ping a server for the latest currency conversions, which made responding to world news much easier."
+      }
     ]
   },
   {
-    "text": "ARTICLES",
-    "items": [
-
-    ]
+    "text": "ARTICLES"
   }
 ]

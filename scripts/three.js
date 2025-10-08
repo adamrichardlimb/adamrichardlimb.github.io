@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import mobileCheck from './mobileCheck.js';
-import items from './items.js';
 import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';
+import { createItems } from './items.js';
 
 let myHead = new THREE.Object3D();
 const scene = new THREE.Scene();
@@ -37,9 +37,55 @@ cssRenderer.domElement.style.top = '0';
 cssRenderer.domElement.style.pointerEvents = 'none';
 document.body.appendChild(cssRenderer.domElement);
 
-for (const item of items) {
-  scene.add(item); // add to scene, not as a child of the head
+
+// Dynamically load all .md files
+async function loadArticles() {
+  // If using Vite/SvelteKit: import.meta.glob is easiest
+  const modules = import.meta.glob('/articles/*.md', { as: 'raw' });
+  const articleList = [];
+
+  for (const path in modules) {
+    const raw = await modules[path]();
+    const match = raw.match(/---\s*title:\s*(.+?)\s*\n/);
+    const title = match ? match[1].trim() : path.split('/').pop().replace('.md', '');
+    const slug = path.split('/').pop().replace('.md', '');
+    articleList.push({ title, href: `/articles/${slug}` });
+  }
+  return articleList;
 }
+
+// Build a details panel of links
+function buildArticleList(list) {
+  const container = document.createElement('div');
+  container.className = 'details-container';
+  for (const { title, href } of list) {
+    const a = document.createElement('a');
+    a.href = href;
+    a.textContent = title;
+    a.style.display = 'block';
+    container.appendChild(a);
+  }
+  return new CSS3DObject(container);
+}
+
+let currentDetails = null;
+
+// Handle clicks
+async function handleItemClick(word) {
+  console.log(word);
+  if (word === 'ARTICLES') {
+    if (currentDetails) scene.remove(currentDetails);
+
+    const articles = await loadArticles();
+    currentDetails = buildArticleList(articles);
+    currentDetails.position.set(0, 0, 2);
+    scene.add(currentDetails);
+  }
+}
+
+// Create items
+const items = createItems(handleItemClick);
+for (const obj of items) scene.add(obj);
 
 // Load model
 const loader = new GLTFLoader();
