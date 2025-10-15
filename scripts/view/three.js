@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import mobileCheck from './mobileCheck.js';
+import mobileCheck from '../mobileCheck.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
-import { createItems } from './items.js';
+import { items } from '../model/ring/itemRing.js';
+import scene from './sceneContext.js';
 
 let myHead = new THREE.Object3D();
-const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
 
 let onMobile = mobileCheck();
@@ -40,40 +40,6 @@ let headTarget = new THREE.Vector3(0, 0, 0);
 let headCurrent = new THREE.Vector3(0, 0, 0);
 let currentDetails = null;
 let panelElement = null;
-
-// === Load articles ===
-async function loadArticles() {
-  const res = await fetch('/articles/articles.json');
-  const files = await res.json();
-  const articles = [];
-
-  for (const file of files) {
-    const slug = file.replace('.md', '');
-    const text = await fetch(`/articles/${file}`).then(r => r.text());
-    const match = text.match(/---\s*title:\s*(.+?)\s*\n/);
-    const title = match ? match[1].trim().toUpperCase() : slug;
-    articles.push({ title, href: `/articles/${slug}.html` });
-  }
-
-  return articles;
-}
-
-// === Build CSS3D panel ===
-function buildArticleList(list) {
-  const container = document.createElement('div');
-  container.className = 'details-container';
-  container.style.opacity = '0';
-
-  for (const { title, href } of list) {
-    const a = document.createElement('a');
-    a.href = href;
-    a.textContent = title;
-    a.style.display = 'block';
-    container.appendChild(a);
-  }
-
-  return new CSS3DObject(container);
-}
 
 // === Show/hide helpers ===
 function showPanel() {
@@ -115,36 +81,15 @@ loader.load(
 
     for (const item of items) {
       labelRadius = Math.max(headSize.x, headSize.z) * 0.04;
-      item.scale.set(labelRadius, labelRadius, labelRadius);
+      item.object.scale.set(labelRadius, labelRadius, labelRadius);
     }
   },
   undefined,
   (err) => console.error('Error loading model:', err)
 );
 
-// === Handle clicks ===
-async function handleItemClick(word) {
-  if (word === 'ARTICLES') {
-    if (isPanelVisible) return hidePanel();
-
-    if (currentDetails) scene.remove(currentDetails);
-
-    const articles = await loadArticles();
-    currentDetails = buildArticleList(articles);
-
-    const pos = onMobile ? new THREE.Vector3(0, -1, -0.5) : new THREE.Vector3(1, 0, -0.5);
-    currentDetails.position.copy(pos);
-    currentDetails.scale.setScalar(0.01);
-    scene.add(currentDetails);
-
-    panelElement = currentDetails.element;
-    showPanel();
-  }
-}
-
 // === Create labels ===
-const items = createItems(handleItemClick);
-for (const obj of items) scene.add(obj);
+for (const item of items) scene.add(item.object);
 
 // === Pointer/touch controls ===
 let mouseX = 0, mouseY = 0;
@@ -179,8 +124,8 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 
   // More sensitivity for mobile
   const scale = onMobile ? 3.0 : 1.0;
-  const dx = (pointer.x - lastPointer.x) * scale;
-  const dy = (pointer.y - lastPointer.y) * scale;
+  const dx = (pointer.x - lastPointer.x);
+  const dy = (pointer.y - lastPointer.y);
 
   mouseX = THREE.MathUtils.clamp(mouseX + dx, -1, 1);
   mouseY = THREE.MathUtils.clamp(mouseY + dy, -1, 1);
@@ -197,9 +142,10 @@ addEventListener('resize', () => {
   onMobile = mobileCheck();
   camera.position.set(0, 0, onMobile ? 2 : 1);
   camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
   cssRenderer.setSize(innerWidth, innerHeight);
   renderer.setSize(innerWidth, innerHeight);
+  camera.updateMatrixWorld();
+  camera.updateProjectionMatrix();
 });
 
 // === Animate ===
@@ -213,7 +159,7 @@ function animate(now = performance.now()) {
 
   // Project pointer into 3D world space
   const depth = onMobile ? 1.5 : 0.5;
-  mouseWorld.set(mouseX, -mouseY * (onMobile ? 3 : 1.0), depth).unproject(camera);
+  mouseWorld.set(mouseX, -mouseY, depth).unproject(camera);
 
   // Get head world position
   myHead.getWorldPosition(headWorld);
@@ -241,7 +187,7 @@ function animate(now = performance.now()) {
   // Label tracking
   myHead.getWorldPosition(headPos);
   for (const item of items) {
-    item.position.copy(headPos).add(new THREE.Vector3(0, headSize.y * 0.125, 0));
+    item.object.position.copy(headPos).add(new THREE.Vector3(0, headSize.y * 0.125, 0));
   }
 
   renderer.render(scene, camera);
@@ -283,3 +229,4 @@ a {
 `;
 document.head.appendChild(style);
 
+export default scene;

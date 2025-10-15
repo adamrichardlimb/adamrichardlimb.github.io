@@ -1,5 +1,8 @@
 import { CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
-import rawItems from '../assets/items.json' with { type: 'json' };
+import rawItems from '../../../assets/items.json' with { type: 'json' };
+import Panel from '../panel.js';
+import createItemPanel from '../../controller/createItemPanel.js';
+import scene from '../../view/sceneContext.js';
 
 // Load JetBrains Mono
 const fontLink = document.createElement('link');
@@ -7,7 +10,7 @@ fontLink.rel = 'stylesheet';
 fontLink.href = 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap';
 document.head.appendChild(fontLink);
 
-// Global CSS stays
+// Global CSS
 const words = rawItems.map(item => item.text);
 const textString = words.join(' ') + ' ';
 const textLength = textString.length;
@@ -15,7 +18,7 @@ const fontSize = 1.0;
 const charWidth = 1.0;
 const canTrig = CSS.supports('(top: calc(sin(1) * 1px))');
 
-// Style — keep this
+// Style
 const style = `
   .ring {
     --char-count: ${textLength};
@@ -50,41 +53,49 @@ const styleTag = document.createElement('style');
 styleTag.textContent = style;
 document.head.appendChild(styleTag);
 
-// Convert this part to a function:
-export function createItems(onClick) {
-  const items = [];
-  let angleOffset = 0;
+// Create items
+const items = [];
+let angleOffset = 0;
 
-  for (const word of words) {
-    const textWithSpace = word + ' ';
-    const wordLength = textWithSpace.length;
+for (const word of words) {
+  const textWithSpace = word + ' ';
+  const wordLength = textWithSpace.length;
 
-    const container = document.createElement('h1');
-    container.className = 'ring';
-    container.style.setProperty('--char-count', textLength);
-    container.style.setProperty('--font-size', fontSize);
-    container.style.setProperty('--character-width', charWidth);
+  const container = document.createElement('h1');
+  container.className = 'ring';
+  container.style.setProperty('--char-count', textLength);
+  container.style.setProperty('--font-size', fontSize);
+  container.style.setProperty('--character-width', charWidth);
 
-    for (let i = 0; i < wordLength; i++) {
-      const span = document.createElement('span');
-      span.className = 'char';
-      span.style.setProperty('--char-index', i);
-      span.style.setProperty('--angle-offset', `${angleOffset}deg`);
-      span.textContent = textWithSpace[i];
-      container.appendChild(span);
-    }
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'ring-wrapper';
-    wrapper.appendChild(container);
-
-    const labelObject = new CSS3DObject(wrapper);
-    labelObject.element.onclick = () => onClick(word, labelObject);
-
-    items.push(labelObject);
-    angleOffset += (360 / textLength) * wordLength;
+  for (let i = 0; i < wordLength; i++) {
+    const span = document.createElement('span');
+    span.className = 'char';
+    span.style.setProperty('--char-index', i);
+    span.style.setProperty('--angle-offset', `${angleOffset}deg`);
+    span.textContent = textWithSpace[i];
+    container.appendChild(span);
   }
 
-  return items;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'ring-wrapper';
+  wrapper.appendChild(container);
+
+  const labelObject = new Panel(wrapper, {
+    name: 'ring-wrapper',
+    visible: true,
+    position: { x: 0, y: 0, z: 0 }
+  });
+  
+  labelObject.element.onclick = async () => {
+    const panel = await createItemPanel(word);
+    if (panel) {
+      scene.add(panel.object);
+    }
+  };
+
+  items.push(labelObject);
+  angleOffset += (360 / textLength) * wordLength;
 }
+
+export { items };
 
