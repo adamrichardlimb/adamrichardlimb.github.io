@@ -11,6 +11,7 @@ export default class Panel {
   } = {}) {
     this.name = name;
     this.element = element;
+    this.element.style.transition = `opacity 1000ms ease`;
     this.object = new CSS3DObject(element);
     this.object.position.set(position.x, position.y, position.z);
     this.object.scale.setScalar(scale);
@@ -36,4 +37,35 @@ export default class Panel {
   setPosition(x, y, z) {
     this.object.position.set(x, y, z);
   }
+
+  fadeIn(duration = 1000) {
+    const el = this.object.element;
+    el.style.transition = `opacity ${duration}ms ease`;
+    el.style.opacity = 0;
+    el.style.visibility = 'hidden';
+    this.show();
+
+    // Wait for next paint
+    requestAnimationFrame(() => {
+      el.style.visibility = 'visible';
+      void el.offsetWidth; // force reflow
+      el.style.opacity = 1;
+    });
+  }
+
+  fadeOut(duration = 1000) {
+    const el = this.object.element;
+    el.style.transition = `opacity ${duration}ms ease`;
+    el.style.opacity = 1;
+
+    void el.offsetWidth;
+    el.style.opacity = 0;
+
+    setTimeout(() => {
+      el.style.visibility = 'hidden';
+      this.hide();
+    }, duration);
+}
+
+
 }

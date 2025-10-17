@@ -1,38 +1,18 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import mobileCheck from '../mobileCheck.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import { items } from '../model/ring/itemRing.js';
 import scene from './sceneContext.js';
+import { camera, renderer, cssRenderer } from './sceneContext.js';
+import mobileCheck from '../mobileCheck.js';
 
 let myHead = new THREE.Object3D();
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
-
-let onMobile = mobileCheck();
-camera.position.set(0, 0, onMobile ? 2 : 1);
-
-const renderer = new THREE.WebGLRenderer({ antialias: false });
-renderer.setSize(innerWidth, innerHeight);
-document.body.appendChild(renderer.domElement);
-renderer.domElement.style.touchAction = 'none';
 
 // Lighting
 scene.add(new THREE.AmbientLight(0xC0C0C0));
 
 // Head movement smoothing
 const lerpAlpha = 0.15;
-
-// CSS3D renderer
-const cssRenderer = new CSS3DRenderer();
-cssRenderer.setSize(window.innerWidth, window.innerHeight);
-Object.assign(cssRenderer.domElement.style, {
-  position: 'absolute',
-  top: '0',
-  left: '0',
-  zIndex: '10',
-  pointerEvents: 'none',
-});
-document.body.appendChild(cssRenderer.domElement);
 
 // State for panel animation
 let isPanelVisible = false;
@@ -44,7 +24,7 @@ let panelElement = null;
 // === Show/hide helpers ===
 function showPanel() {
   isPanelVisible = true;
-  if (onMobile) headTarget.set(0, 0.8, 0);
+  if (mobileCheck()) headTarget.set(0, 0.8, 0);
   else headTarget.set(-0.8, 0, 0);
   if (panelElement) setTimeout(() => {
     panelElement.style.opacity = '1';
@@ -64,6 +44,7 @@ function hidePanel() {
   }
   headTarget.set(0, 0, 0);
 }
+
 // === Load model ===
 const loader = new GLTFLoader();
 let headBox = new THREE.Box3();
@@ -105,7 +86,7 @@ function updatePointer(e) {
 
 // Desktop: hover
 window.addEventListener('mousemove', (e) => {
-  if (onMobile || isTouchDragging) return;
+  if (mobileCheck() || isTouchDragging) return;
   updatePointer(e);
   mouseX = THREE.MathUtils.clamp(pointer.x, -1, 1);
   mouseY = THREE.MathUtils.clamp(pointer.y, -1, 1);
@@ -123,7 +104,7 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   updatePointer(e);
 
   // More sensitivity for mobile
-  const scale = onMobile ? 3.0 : 1.0;
+  const scale = mobileCheck() ? 3.0 : 1.0;
   const dx = (pointer.x - lastPointer.x);
   const dy = (pointer.y - lastPointer.y);
 
@@ -137,17 +118,6 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   renderer.domElement.addEventListener(evt, () => (isTouchDragging = false))
 );
 
-// === Resize ===
-addEventListener('resize', () => {
-  onMobile = mobileCheck();
-  camera.position.set(0, 0, onMobile ? 2 : 1);
-  camera.aspect = innerWidth / innerHeight;
-  cssRenderer.setSize(innerWidth, innerHeight);
-  renderer.setSize(innerWidth, innerHeight);
-  camera.updateMatrixWorld();
-  camera.updateProjectionMatrix();
-});
-
 // === Animate ===
 let lastT = performance.now();
 const headPos = new THREE.Vector3();
@@ -158,7 +128,7 @@ function animate(now = performance.now()) {
   lastT = now;
 
   // Project pointer into 3D world space
-  const depth = onMobile ? 1.5 : 0.5;
+  const depth = mobileCheck() ? 1.5 : 0.5;
   mouseWorld.set(mouseX, -mouseY, depth).unproject(camera);
 
   // Get head world position
@@ -172,7 +142,7 @@ function animate(now = performance.now()) {
   const desiredPitch = Math.asin(targetDir.y);
 
   // Interpolate, with wider vertical range for mobile
-  const pitchClamp = onMobile ? Math.PI / 2 : THREE.MathUtils.degToRad(20);
+  const pitchClamp = mobileCheck() ? Math.PI / 2 : THREE.MathUtils.degToRad(20);
   myHead.rotation.y = THREE.MathUtils.lerp(myHead.rotation.y, desiredYaw, lerpAlpha);
   myHead.rotation.x = THREE.MathUtils.lerp(
     myHead.rotation.x,
@@ -194,6 +164,8 @@ function animate(now = performance.now()) {
   cssRenderer.render(scene, camera);
 }
 renderer.setAnimationLoop(animate);
+
+export {headTarget};
 
 // === Style ===
 const style = document.createElement('style');

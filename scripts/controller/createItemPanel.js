@@ -3,6 +3,7 @@ import Panel from '../model/panel.js';
 import scene from '../view/sceneContext.js';
 import validPanelName from './util/validPanelName.js';
 import removeItemPanel from './removeItemPanel.js';
+import moveHead from './moveHead.js';
 
 export default async function createItemPanel(name) {
   const validPanel = validPanelName(name); 
@@ -28,6 +29,11 @@ export default async function createItemPanel(name) {
   //If we get one - show it
   if (newPanel) {
       newPanel.object.name = `item-panel-${name}`;
+      
+      //Move head to appropriate position
+      moveHead(name);
+
       scene.add(newPanel.object);
+      newPanel.fadeIn();
   }
 }
