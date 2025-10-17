@@ -1,20 +1,14 @@
 import rawItems from '../../assets/items.json' with { type: 'json' };
 import Panel from '../model/panel.js';
+import scene from '../view/sceneContext.js';
+import validPanelName from './util/validPanelName.js';
+import removeItemPanel from './removeItemPanel.js';
 
 export default async function createItemPanel(name) {
-  const words = rawItems.map(item => item.text);
+  const validPanel = validPanelName(name); 
 
-  if (!words.includes(name)) {
-    console.warn(`Requested panel "${name}" does not exist.`);
-    return null;
-  }
-
-  /*
-  //If the new panel is the same as the old one - shut the panel
-  if (name == getActivePanel()) {
-    closePanel(name);
-  }
-  */
+  //Delete already existing item panel
+  const existing = scene.children.filter(obj => obj.name.startsWith('item-panel')).forEach(obj => removeItemPanel(obj));
 
   //Create the new panel
   let newPanel = null;
@@ -32,9 +26,8 @@ export default async function createItemPanel(name) {
   }
 
   //If we get one - show it
-  /*if (newPanel) {
-    changePanel(newPanel);
+  if (newPanel) {
+      newPanel.object.name = `item-panel-${name}`;
+      scene.add(newPanel.object);
   }
-  */
-  return newPanel;
 }

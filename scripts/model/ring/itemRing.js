@@ -2,7 +2,6 @@ import { CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import rawItems from '../../../assets/items.json' with { type: 'json' };
 import Panel from '../panel.js';
 import createItemPanel from '../../controller/createItemPanel.js';
-import scene from '../../view/sceneContext.js';
 
 // Load JetBrains Mono
 const fontLink = document.createElement('link');
@@ -87,10 +86,8 @@ for (const word of words) {
   });
   
   labelObject.element.onclick = async () => {
-    const panel = await createItemPanel(word);
-    if (panel) {
-      scene.add(panel.object);
-    }
+    console.log(`Clicked: ${word}`)
+    await createItemPanel(word);
   };
 
   items.push(labelObject);
