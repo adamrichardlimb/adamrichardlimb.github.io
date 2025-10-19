@@ -7,11 +7,12 @@ const files = await res.json();
 const article_list = await findMarkdown("articles");
 
 const container = document.createElement('div');
-container.className = 'details-container';
+container.className = 'panel panel-item scrollbox';
 
 for (const { title, href } of article_list) {
   const a = document.createElement('a');
   a.href = href;
+  a.target = "_blank";
   a.textContent = title;
   a.style.display = 'block';
   container.appendChild(a);

@@ -1,0 +1,58 @@
+.panel {
+  height: 16em;
+  max-height: 16em;
+  width: 16em;
+  max-width: 16em;
+  color: white;
+  background: rgba(0, 0, 0, 0.7);
+  text-align: right;
+  font-family: "JetBrains Mono", monospace;
+  transition: opacity 0.4s ease;
+  font-weight: 500;
+  font-style: normal;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-size: 16px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.panel div + div {
+  margin-top: 1em;
+}
+
+.panel-item {
+  color: inherit;
+  border: 0.25em solid white;
+}
+
+.scrollbox {
+  flex: 1; /* take remaining space within panel */
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  scrollbar-color: white transparent;
+  max-height: 100%; /* never exceed parent */
+  max-width: 100%;
+}
+
+.project-info * {
+  margin: 0.1em;
+}
+
+.project-info p {
+  font-size: 8px;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a {
+  text-decoration: none;
+  border: none;
+  outline: none;
+  color: white;
+  display: block;
+  outline: none;
+}
