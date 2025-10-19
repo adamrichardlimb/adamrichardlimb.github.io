@@ -8,7 +8,7 @@
         "description": "The Pomodoroiser is a small app to turn any YouTube playlist into a 'Pomodoro' a productivity tool that alternates between work and break time. The Pomodoroiser can take custom lengths for both the work and break time."
       },
       {
-        "title": "Interactive Chloropleth Mapping",
+        "title": "Interactive Chloropleth Maps",
         "link": "",
         "description": "I was pitched the opportunity to do some mapping for a political organisation, so I took the median house price data for the past 20 years across 30,000 areas in the UK and created a map that allows you to select an LSOA, zoom in, and see the area. This was a mock-up, so performance and not flourish was the aim. Ultimately, it shows over 1 million datapoints and represents it clearly with <50MB."
       },

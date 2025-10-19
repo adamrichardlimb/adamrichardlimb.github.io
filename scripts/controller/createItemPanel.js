@@ -6,10 +6,19 @@ import removeItemPanel from './removeItemPanel.js';
 import moveHead from './moveHead.js';
 
 export default async function createItemPanel(name) {
-  const validPanel = validPanelName(name); 
+  const validPanel = validPanelName(name);
+  if (!validPanel) return;
 
-  //Delete already existing item panel
-  const existing = scene.children.filter(obj => obj.name.startsWith('item-panel')).forEach(obj => removeItemPanel(obj));
+  // Remove any existing item panels
+  const existing = scene.children.filter(obj => obj.name.startsWith('item-panel'));
+  console.log(scene.children)
+  existing.forEach(obj => removeItemPanel(obj));
+  console.log(existing)
+
+  // If a panel with this name already exists, return
+  const alreadyExists = existing.some(obj => obj.name === `item-panel-${name}`);
+  
+  if (alreadyExists) return;
 
   //Create the new panel
   let newPanel = null;

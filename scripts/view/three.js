@@ -1,204 +1,64 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import { items } from '../model/ring/itemRing.js';
-import scene from './sceneContext.js';
-import { camera, renderer, cssRenderer } from './sceneContext.js';
-import mobileCheck from '../mobileCheck.js';
+import scene, { camera, renderer, cssRenderer } from './sceneContext.js';
+import HeadController from '../controller/headController.js';
 
-let myHead = new THREE.Object3D();
+// Initialise controller with placeholder head
+const headController = new HeadController(new THREE.Object3D(), camera, renderer, items);
+scene.add(headController.myHead);
 
 // Lighting
 scene.add(new THREE.AmbientLight(0xC0C0C0));
 
-// Head movement smoothing
-const lerpAlpha = 0.15;
-
-// State for panel animation
-let isPanelVisible = false;
-let headTarget = new THREE.Vector3(0, 0, 0);
-let headCurrent = new THREE.Vector3(0, 0, 0);
-let currentDetails = null;
-let panelElement = null;
-
-// === Show/hide helpers ===
-function showPanel() {
-  isPanelVisible = true;
-  if (mobileCheck()) headTarget.set(0, 0.8, 0);
-  else headTarget.set(-0.8, 0, 0);
-  if (panelElement) setTimeout(() => {
-    panelElement.style.opacity = '1';
-    panelElement.style.display = 'block';
-    panelElement.style.pointerEvents = 'auto';
-  }, 400);
-}
-
-function hidePanel() {
-  isPanelVisible = false;
-  if (panelElement) {
-    panelElement.style.opacity = '0';
-    setTimeout(() => {
-      panelElement.style.display = 'none';
-      panelElement.style.pointerEvents = 'none';
-    }, 600);
-  }
-  headTarget.set(0, 0, 0);
-}
-
 // === Load model ===
 const loader = new GLTFLoader();
-let headBox = new THREE.Box3();
-let headSize = new THREE.Vector3();
-let labelRadius = 0;
+const headBox = new THREE.Box3();
+const headSize = new THREE.Vector3();
 
 loader.load(
   './assets/head.glb',
   (gltf) => {
-    myHead = gltf.scene;
-    scene.add(myHead);
+    headController.myHead = gltf.scene;
+    scene.add(headController.myHead);
 
-    headBox.setFromObject(myHead);
+    headBox.setFromObject(headController.myHead);
     headBox.getSize(headSize);
 
-    for (const item of items) {
-      labelRadius = Math.max(headSize.x, headSize.z) * 0.04;
+    const labelRadius = Math.max(headSize.x, headSize.z) * 0.04;
+    for (const item of items)
       item.object.scale.set(labelRadius, labelRadius, labelRadius);
-    }
   },
   undefined,
   (err) => console.error('Error loading model:', err)
 );
 
-// === Create labels ===
+// === Add labels ===
 for (const item of items) scene.add(item.object);
-
-// === Pointer/touch controls ===
-let mouseX = 0, mouseY = 0;
-let pointer = new THREE.Vector2(0, 0);
-let lastPointer = new THREE.Vector2(0, 0);
-let isTouchDragging = false;
-
-function updatePointer(e) {
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-}
-
-// Desktop: hover
-window.addEventListener('mousemove', (e) => {
-  if (mobileCheck() || isTouchDragging) return;
-  updatePointer(e);
-  mouseX = THREE.MathUtils.clamp(pointer.x, -1, 1);
-  mouseY = THREE.MathUtils.clamp(pointer.y, -1, 1);
-});
-
-// Unified pointer/touch
-renderer.domElement.addEventListener('pointerdown', (e) => {
-  updatePointer(e);
-  lastPointer.copy(pointer);
-  isTouchDragging = true;
-});
-
-renderer.domElement.addEventListener('pointermove', (e) => {
-  if (!isTouchDragging) return;
-  updatePointer(e);
-
-  // More sensitivity for mobile
-  const scale = mobileCheck() ? 3.0 : 1.0;
-  const dx = (pointer.x - lastPointer.x);
-  const dy = (pointer.y - lastPointer.y);
-
-  mouseX = THREE.MathUtils.clamp(mouseX + dx, -1, 1);
-  mouseY = THREE.MathUtils.clamp(mouseY + dy, -1, 1);
-
-  lastPointer.copy(pointer);
-});
-
-['pointerup', 'pointercancel', 'pointerleave'].forEach(evt =>
-  renderer.domElement.addEventListener(evt, () => (isTouchDragging = false))
-);
 
 // === Animate ===
 let lastT = performance.now();
 const headPos = new THREE.Vector3();
-const mouseWorld = new THREE.Vector3();
-const headWorld = new THREE.Vector3();
+
 function animate(now = performance.now()) {
   const dt = (now - lastT) / 1000;
   lastT = now;
 
-  // Project pointer into 3D world space
-  const depth = mobileCheck() ? 1.5 : 0.5;
-  mouseWorld.set(mouseX, -mouseY, depth).unproject(camera);
+  if (!headController.myHead) return;
 
-  // Get head world position
-  myHead.getWorldPosition(headWorld);
+  headController.update(dt);
 
-  // Direction to look at
-  const targetDir = mouseWorld.clone().sub(headWorld).normalize();
-
-  // Convert to yaw/pitch
-  const desiredYaw = Math.atan2(targetDir.x, targetDir.z);
-  const desiredPitch = Math.asin(targetDir.y);
-
-  // Interpolate, with wider vertical range for mobile
-  const pitchClamp = mobileCheck() ? Math.PI / 2 : THREE.MathUtils.degToRad(20);
-  myHead.rotation.y = THREE.MathUtils.lerp(myHead.rotation.y, desiredYaw, lerpAlpha);
-  myHead.rotation.x = THREE.MathUtils.lerp(
-    myHead.rotation.x,
-    THREE.MathUtils.clamp(desiredPitch, -pitchClamp, pitchClamp),
-    lerpAlpha
-  );
-
-  // Slide head position for panel animation
-  headCurrent.lerp(headTarget, 0.05);
-  myHead.position.copy(headCurrent);
-
-  // Label tracking
-  myHead.getWorldPosition(headPos);
-  for (const item of items) {
+  // Label follow
+  headController.myHead.getWorldPosition(headPos);
+  for (const item of items)
     item.object.position.copy(headPos).add(new THREE.Vector3(0, headSize.y * 0.125, 0));
-  }
 
   renderer.render(scene, camera);
   cssRenderer.render(scene, camera);
 }
+
 renderer.setAnimationLoop(animate);
 
-export {headTarget};
-
-// === Style ===
-const style = document.createElement('style');
-style.textContent = `
-.details-container {
-  border: 0.25em solid white;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 1em;
-  text-align: right;
-  font-optical-sizing: auto;
-  font-family: "JetBrains Mono", monospace;
-  transition: opacity 0.4s ease;
-  font-weight: 500;
-  font-style: normal;
-  font-variant-numeric: tabular-nums lining-nums;
-  font-size: 16px;
-  height: 7.5em;
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
-a {
-  text-decoration: none;
-  border: none;
-  outline: none;
-  color: white;
-  display: block;
-  margin: 0.25em 0;
-  outline: none;
-}
-`;
-document.head.appendChild(style);
-
 export default scene;
+export { headController };
+

@@ -20,7 +20,7 @@ for (const { title, href } of article_list) {
 const articles = new Panel(container, {
   name: 'details-container',
   visible: true,
-  position: mobileCheck() ? {x: 0, y: 0.5, z:0 } : { x: 1, y: 0, z: 0 },
+  position: mobileCheck() ? {x: 0, y: 0.75, z:0 } : { x: .75, y: 0, z: 0 },
   scale: 0.005
 });
 

@@ -1,6 +1,7 @@
 import Panel from '../model/panel.js';
 import validPanelName from './util/validPanelName.js';
 import scene from '../view/sceneContext.js';
+import { headController } from '../view/three.js';
 
 export default function removeItemPanel(panel) {
   if (!panel.name.startsWith('item-panel')) {
@@ -17,5 +18,6 @@ export default function removeItemPanel(panel) {
   }
 
   //Animate based on name and if on mobile
+  headController.headTarget.set(0, 0, 0);
   scene.remove(panel);
 }

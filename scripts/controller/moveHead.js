@@ -1,4 +1,4 @@
-import { headTarget } from '../view/three.js';
+import { headController } from '../view/three.js';
 import mobileCheck from '../mobileCheck.js';
 
 export default function moveHead(panelName) {
@@ -7,10 +7,10 @@ export default function moveHead(panelName) {
   console.log(`Moving for ${panelName}`)
 
   if (panelName == "ARTICLES") {
-    new_target = mobileCheck() ? {x: 0, y: -0.5, z:0 } : { x: -1, y: 0, z: 0 };
+    new_target = mobileCheck() ? {x: 0, y: -0.75, z:0 } : { x: -.75, y: 0, z: 0 };
   } else if (panelName == "PROJECTS") {
-    new_target = mobileCheck() ? {x: 0, y: 0.5, z:0 } : { x: 1, y: 0, z: 0 };
+    new_target = mobileCheck() ? {x: 0, y: 0.75, z:0 } : { x: .75, y: 0, z: 0 };
   }
 
-  headTarget.set(new_target.x, new_target.y, new_target.z);
+  headController.headTarget.set(new_target.x, new_target.y, new_target.z);
 }
