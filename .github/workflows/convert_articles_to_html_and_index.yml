@@ -1,14 +1,37 @@
-name: build-article-index
-run-name: Generate /articles/articles.json for Markdown files
+name: convert-and-index
+run-name: Convert Markdown to HTML and generate article index
+
 on:
   push:
     branches: [main]
   workflow_dispatch: {}
+
 permissions:
   contents: write
 
 jobs:
+  convert-html:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pandoc
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+
+      - name: Convert MD to HTML
+        run: bash scripts/convert_html.sh
+
+      - name: Commit HTML files
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add articles/*.html
+          git diff --staged --quiet || git commit -m "Build: update HTML [skip ci]"
+          git push
+
   build-article-index:
+    needs: convert-html  # <-- ensures this job runs after convert-html
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
